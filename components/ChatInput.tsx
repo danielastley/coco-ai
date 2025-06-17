@@ -1,75 +1,139 @@
-import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { 
+  View, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  useColorScheme,
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+} from 'react-native';
+import { Send } from 'lucide-react-native';
+import colors from '@/constants/colors';
 
-interface ChatInputProps {
-  value: string;
-  onChangeText: (text: string) => void;
-  onSend: () => void;
-  isLoading?: boolean;
-}
+type ChatInputProps = {
+  onSend: (message: string) => void;
+  isLoading: boolean;
+};
 
-export default function ChatInput({ value, onChangeText, onSend, isLoading = false }: ChatInputProps) {
+export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
+  const [message, setMessage] = useState('');
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
+  const handleSend = () => {
+    if (message.trim() && !isLoading) {
+      onSend(message.trim());
+      setMessage('');
+      Keyboard.dismiss();
+    }
+  };
+  
   return (
-    <View style={styles.container}>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder="Type a message..."
-          placeholderTextColor="#8E8E93"
-          multiline
-          maxLength={1000}
-          editable={!isLoading}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, (!value.trim() || isLoading) && styles.sendButtonDisabled]}
-          onPress={onSend}
-          disabled={!value.trim() || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Ionicons name="send" size={20} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
-      </View>
+    <View style={[
+      styles.container, 
+      isDark ? styles.containerDark : styles.containerLight
+    ]}>
+      <TextInput
+        style={[
+          styles.input, 
+          isDark ? styles.inputDark : styles.inputLight
+        ]}
+        value={message}
+        onChangeText={setMessage}
+        placeholder="Type a message..."
+        placeholderTextColor={isDark ? colors.darkLightText : colors.lightText}
+        multiline
+        maxLength={1000}
+        returnKeyType="default"
+        blurOnSubmit={false}
+        editable={!isLoading}
+      />
+      <TouchableOpacity 
+        style={[
+          styles.sendButton,
+          message.trim() ? styles.sendButtonActive : styles.sendButtonInactive,
+          isLoading && styles.sendButtonLoading
+        ]} 
+        onPress={handleSend}
+        disabled={!message.trim() || isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Send size={20} color="#fff" />
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-  },
-  inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    // Add shadow to make it stand out above keyboard
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  containerLight: {
+    backgroundColor: colors.background,
+    borderTopColor: colors.border,
+  },
+  containerDark: {
+    backgroundColor: colors.darkBackground,
+    borderTopColor: colors.darkBorder,
   },
   input: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    backgroundColor: '#F2F2F7',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginRight: 8,
-    fontSize: 16,
+    maxHeight: 120,
+    borderWidth: 1,
+  },
+  inputLight: {
+    backgroundColor: '#fff',
+    color: colors.text,
+    borderColor: colors.border,
+  },
+  inputDark: {
+    backgroundColor: '#2A2C34',
+    color: colors.darkText,
+    borderColor: colors.darkBorder,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  sendButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+  sendButtonActive: {
+    backgroundColor: colors.primary,
   },
-}); 
+  sendButtonInactive: {
+    backgroundColor: colors.lightText,
+  },
+  sendButtonLoading: {
+    backgroundColor: colors.secondary,
+  },
+});

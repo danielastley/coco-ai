@@ -1,115 +1,167 @@
 import { create } from 'zustand';
-import { Message, Conversation } from '../types';
-import { sendMessageToLLM } from '../api/llmClient';
-import { saveConversation, loadConversations, deleteConversation } from '../utils/storage';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Conversation, Message } from '@/types';
+import { llmClient } from '@/api/llmClient';
+import { generateConversationTitle } from '@/utils/formatters';
 
 interface ChatState {
-  messages: Message[];
   conversations: Conversation[];
   currentConversationId: string | null;
   isLoading: boolean;
+  error: string | null;
   
   // Actions
+  createConversation: () => string;
+  loadConversation: (id: string) => void;
   sendMessage: (content: string) => Promise<void>;
-  selectConversation: (conversationId: string) => void;
-  createNewConversation: () => void;
-  deleteConversation: (conversationId: string) => Promise<void>;
-  loadConversations: () => Promise<void>;
+  deleteConversation: (id: string) => void;
+  clearError: () => void;
+  
+  // Selectors
+  getCurrentConversation: () => Conversation | null;
+  getConversationById: (id: string) => Conversation | null;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  messages: [],
-  conversations: [],
-  currentConversationId: null,
-  isLoading: false,
-
-  sendMessage: async (content: string) => {
-    const { messages, currentConversationId } = get();
-    
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content,
-      role: 'user',
-      timestamp: new Date(),
-    };
-
-    const newMessages = [...messages, userMessage];
-    set({ messages: newMessages, isLoading: true });
-
-    try {
-      const response = await sendMessageToLLM(content);
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
+      conversations: [],
+      currentConversationId: null,
+      isLoading: false,
+      error: null,
       
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: response,
-        role: 'assistant',
-        timestamp: new Date(),
-      };
-
-      const updatedMessages = [...newMessages, assistantMessage];
-      set({ messages: updatedMessages });
-
-      // Save conversation
-      const conversation: Conversation = {
-        id: currentConversationId || Date.now().toString(),
-        title: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
-        messages: updatedMessages,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      await saveConversation(conversation);
+      createConversation: () => {
+        const id = Date.now().toString();
+        const newConversation: Conversation = {
+          id,
+          title: 'New Conversation',
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        
+        set(state => ({
+          conversations: [newConversation, ...state.conversations],
+          currentConversationId: id,
+        }));
+        
+        return id;
+      },
       
-      if (!currentConversationId) {
-        set({ currentConversationId: conversation.id });
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Remove the user message on error
-      set({ messages });
-    } finally {
-      set({ isLoading: false });
+      loadConversation: (id: string) => {
+        set({ currentConversationId: id });
+      },
+      
+      sendMessage: async (content: string) => {
+        set({ isLoading: true, error: null });
+        
+        let currentId = get().currentConversationId;
+        if (!currentId) {
+          currentId = get().createConversation();
+        }
+        
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          role: 'user',
+          content,
+          timestamp: Date.now(),
+        };
+        
+        // Update state with user message
+        set(state => {
+          const updatedConversations = state.conversations.map(conv => {
+            if (conv.id === currentId) {
+              // Update conversation title if this is the first message
+              const isFirstMessage = conv.messages.length === 0;
+              const title = isFirstMessage ? generateConversationTitle(content) : conv.title;
+              
+              return {
+                ...conv,
+                title,
+                messages: [...conv.messages, userMessage],
+                updatedAt: Date.now(),
+              };
+            }
+            return conv;
+          });
+          
+          return { conversations: updatedConversations };
+        });
+        
+        try {
+          // Get current conversation with the new user message
+          const currentConversation = get().getConversationById(currentId!);
+          if (!currentConversation) {
+            throw new Error('Conversation not found');
+          }
+          
+          // Send to LLM
+          const assistantMessage = await llmClient.sendMessage(currentConversation.messages);
+          
+          if (assistantMessage) {
+            // Update state with assistant response
+            set(state => {
+              const updatedConversations = state.conversations.map(conv => {
+                if (conv.id === currentId) {
+                  return {
+                    ...conv,
+                    messages: [...conv.messages, assistantMessage],
+                    updatedAt: Date.now(),
+                  };
+                }
+                return conv;
+              });
+              
+              return { 
+                conversations: updatedConversations,
+                isLoading: false,
+              };
+            });
+          } else {
+            throw new Error('No response from assistant');
+          }
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to get response',
+            isLoading: false,
+          });
+        }
+      },
+      
+      deleteConversation: (id: string) => {
+        set(state => {
+          const updatedConversations = state.conversations.filter(conv => conv.id !== id);
+          
+          // If we're deleting the current conversation, set current to null
+          const currentId = state.currentConversationId === id ? null : state.currentConversationId;
+          
+          return {
+            conversations: updatedConversations,
+            currentConversationId: currentId,
+          };
+        });
+      },
+      
+      clearError: () => set({ error: null }),
+      
+      getCurrentConversation: () => {
+        const { conversations, currentConversationId } = get();
+        if (!currentConversationId) return null;
+        return conversations.find(conv => conv.id === currentConversationId) || null;
+      },
+      
+      getConversationById: (id: string) => {
+        return get().conversations.find(conv => conv.id === id) || null;
+      },
+    }),
+    {
+      name: 'chat-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        conversations: state.conversations,
+        currentConversationId: state.currentConversationId,
+      }),
     }
-  },
-
-  selectConversation: (conversationId: string) => {
-    const { conversations } = get();
-    const conversation = conversations.find(c => c.id === conversationId);
-    
-    if (conversation) {
-      set({ 
-        messages: conversation.messages,
-        currentConversationId: conversationId 
-      });
-    }
-  },
-
-  createNewConversation: () => {
-    set({ 
-      messages: [],
-      currentConversationId: null 
-    });
-  },
-
-  deleteConversation: async (conversationId: string) => {
-    const { conversations, currentConversationId } = get();
-    
-    await deleteConversation(conversationId);
-    
-    const updatedConversations = conversations.filter(c => c.id !== conversationId);
-    set({ conversations: updatedConversations });
-
-    if (currentConversationId === conversationId) {
-      set({ messages: [], currentConversationId: null });
-    }
-  },
-
-  loadConversations: async () => {
-    try {
-      const conversations = await loadConversations();
-      set({ conversations });
-    } catch (error) {
-      console.error('Error loading conversations:', error);
-    }
-  },
-})); 
+  )
+);

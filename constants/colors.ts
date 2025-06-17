@@ -1,43 +1,20 @@
-export const colors = {
-  // Primary colors
-  primary: '#007AFF',
-  primaryDark: '#0056CC',
-  primaryLight: '#4DA3FF',
-  
-  // Secondary colors
-  secondary: '#5856D6',
-  secondaryDark: '#3634A3',
-  secondaryLight: '#7A79E0',
-  
-  // Background colors
-  background: '#F2F2F7',
-  backgroundSecondary: '#FFFFFF',
-  
-  // Text colors
-  textPrimary: '#000000',
-  textSecondary: '#8E8E93',
-  textTertiary: '#C7C7CC',
-  
-  // Message bubble colors
-  userBubble: '#007AFF',
-  assistantBubble: '#E5E5EA',
-  userText: '#FFFFFF',
-  assistantText: '#000000',
-  
-  // Border colors
-  border: '#E5E5EA',
-  borderLight: '#F2F2F7',
-  
-  // Status colors
-  success: '#34C759',
-  warning: '#FF9500',
-  error: '#FF3B30',
-  
-  // System colors
-  systemGray: '#8E8E93',
-  systemGray2: '#AEAEB2',
-  systemGray3: '#C7C7CC',
-  systemGray4: '#D1D1D6',
-  systemGray5: '#E5E5EA',
-  systemGray6: '#F2F2F7',
-} as const; 
+const colors = {
+  primary: '#4A6FA5',
+  secondary: '#9BB1D2',
+  background: '#F8F9FB',
+  darkBackground: '#1A1C22',
+  text: '#333333',
+  darkText: '#E8E9F0',
+  lightText: '#8A8A8A',
+  darkLightText: '#A0A0A5',
+  border: '#E5E5E5',
+  darkBorder: '#2A2C34',
+  error: '#E74C3C',
+  success: '#2ECC71',
+  userBubble: '#E8F0FB',
+  assistantBubble: '#FFFFFF',
+  darkUserBubble: '#2D3748',
+  darkAssistantBubble: '#1E2533',
+};
+
+export default colors;

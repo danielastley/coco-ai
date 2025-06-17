@@ -1,41 +1,74 @@
-import { useSettingsStore } from '../store/settingsStore';
+import { Message, LLMResponse } from '@/types';
 
-export async function sendMessageToLLM(content: string): Promise<string> {
-  const { settings } = useSettingsStore.getState();
-  
-  if (!settings.serverUrl || !settings.apiKey) {
-    throw new Error('Server URL and API Key are required');
+export class LLMClient {
+  private serverUrl: string;
+
+  constructor(serverUrl: string) {
+    this.serverUrl = serverUrl;
   }
 
-  try {
-    const response = await fetch(`${settings.serverUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages: [
-          {
-            role: 'user',
-            content: content,
-          },
-        ],
-        max_tokens: 1000,
-        temperature: 0.7,
-      }),
-    });
+  setServerUrl(url: string) {
+    this.serverUrl = url;
+  }
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.serverUrl}/v1/models`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return response.ok;
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      return false;
     }
-
-    const data = await response.json();
-    return data.choices[0]?.message?.content || 'No response from model';
-  } catch (error) {
-    console.error('Error calling LLM API:', error);
-    throw error;
   }
-} 
+
+  async sendMessage(messages: Message[]): Promise<Message | null> {
+    try {
+      // Format messages for the API
+      const formattedMessages = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      const response = await fetch(`${this.serverUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'local-model', // This is typically ignored by LM Studio
+          messages: formattedMessages,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: LLMResponse = await response.json();
+      
+      if (data.choices && data.choices.length > 0) {
+        return {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: data.choices[0].message.content,
+          timestamp: Date.now(),
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+  }
+}
+
+// Create a singleton instance
+export const llmClient = new LLMClient('');

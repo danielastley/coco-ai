@@ -1,31 +1,39 @@
-export interface Message {
+export type Message = {
   id: string;
+  role: 'user' | 'assistant' | 'system';
   content: string;
-  role: 'user' | 'assistant';
-  timestamp: Date;
-}
+  timestamp: number;
+};
 
-export interface Conversation {
+export type Conversation = {
   id: string;
   title: string;
   messages: Message[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+  createdAt: number;
+  updatedAt: number;
+};
 
-export interface Settings {
+export type ServerSettings = {
   serverUrl: string;
-  apiKey: string;
-  model: string;
-}
+  isConnected: boolean;
+};
 
-export interface LLMResponse {
-  choices: Array<{
+export type LLMResponse = {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: {
+    index: number;
     message: {
+      role: string;
       content: string;
     };
-  }>;
-  error?: {
-    message: string;
+    finish_reason: string;
+  }[];
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
   };
-} 
+};

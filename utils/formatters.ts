@@ -1,35 +1,32 @@
-export function formatTime(date: Date): string {
-  const now = new Date();
-  const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-  
-  if (diffInHours < 1) {
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    return `${diffInMinutes}m ago`;
-  } else if (diffInHours < 24) {
-    return `${Math.floor(diffInHours)}h ago`;
-  } else {
-    return date.toLocaleDateString();
-  }
-}
+export const formatTimestamp = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 
-export function formatDate(date: Date): string {
-  const now = new Date();
-  const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  
-  if (diffInDays === 0) {
+export const formatDate = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) {
     return 'Today';
-  } else if (diffInDays === 1) {
+  } else if (date.toDateString() === yesterday.toDateString()) {
     return 'Yesterday';
-  } else if (diffInDays < 7) {
-    return `${diffInDays} days ago`;
   } else {
-    return date.toLocaleDateString();
+    return date.toLocaleDateString([], {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+    });
   }
-}
+};
 
-export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) {
-    return text;
-  }
+export const truncateText = (text: string, maxLength: number): string => {
+  if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
-} 
+};
+
+export const generateConversationTitle = (firstMessage: string): string => {
+  return truncateText(firstMessage, 30);
+};

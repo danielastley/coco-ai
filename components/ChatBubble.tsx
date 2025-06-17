@@ -1,23 +1,37 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Message } from '../types';
-import { formatTime } from '../utils/formatters';
+import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { Message } from '@/types';
+import { formatTimestamp } from '@/utils/formatters';
+import colors from '@/constants/colors';
 
-interface ChatBubbleProps {
+type ChatBubbleProps = {
   message: Message;
-}
+};
 
 export default function ChatBubble({ message }: ChatBubbleProps) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   const isUser = message.role === 'user';
-
+  
+  const bubbleStyle = [
+    styles.bubble,
+    isUser 
+      ? isDark ? styles.userBubbleDark : styles.userBubble
+      : isDark ? styles.assistantBubbleDark : styles.assistantBubble,
+  ];
+  
+  const textStyle = [
+    styles.text,
+    isDark ? styles.textDark : styles.textLight,
+  ];
+  
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.assistantContainer]}>
-      <View style={[styles.bubble, isUser ? styles.userBubble : styles.assistantBubble]}>
-        <Text style={[styles.text, isUser ? styles.userText : styles.assistantText]}>
-          {message.content}
-        </Text>
-        <Text style={[styles.time, isUser ? styles.userTime : styles.assistantTime]}>
-          {formatTime(message.timestamp)}
+      <View style={bubbleStyle}>
+        <Text style={textStyle}>{message.content}</Text>
+        <Text style={[styles.timestamp, isDark ? styles.timestampDark : styles.timestampLight]}>
+          {formatTimestamp(message.timestamp)}
         </Text>
       </View>
     </View>
@@ -28,6 +42,7 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 4,
     paddingHorizontal: 16,
+    width: '100%',
   },
   userContainer: {
     alignItems: 'flex-end',
@@ -36,36 +51,50 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bubble: {
-    maxWidth: '80%',
-    padding: 12,
     borderRadius: 18,
+    padding: 12,
+    maxWidth: '80%',
+    minWidth: 60,
   },
   userBubble: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.userBubble,
+    borderBottomRightRadius: 4,
   },
   assistantBubble: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.assistantBubble,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  userBubbleDark: {
+    backgroundColor: colors.darkUserBubble,
+    borderBottomRightRadius: 4,
+  },
+  assistantBubbleDark: {
+    backgroundColor: colors.darkAssistantBubble,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
   },
   text: {
     fontSize: 16,
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  userText: {
-    color: '#FFFFFF',
+  textLight: {
+    color: colors.text,
   },
-  assistantText: {
-    color: '#000000',
+  textDark: {
+    color: colors.darkText,
   },
-  time: {
+  timestamp: {
     fontSize: 12,
     marginTop: 4,
-    opacity: 0.7,
+    alignSelf: 'flex-end',
   },
-  userTime: {
-    color: '#FFFFFF',
-    textAlign: 'right',
+  timestampLight: {
+    color: colors.lightText,
   },
-  assistantTime: {
-    color: '#8E8E93',
+  timestampDark: {
+    color: colors.darkLightText,
   },
-}); 
+});
