@@ -1,123 +1,201 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Settings } from '../types';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  TextInput, 
+  TouchableOpacity, 
+  Text, 
+  StyleSheet, 
+  ActivityIndicator,
+  useColorScheme,
+  Alert,
+} from 'react-native';
+import colors from '@/constants/colors';
 
-interface ServerFormProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
+type ServerFormProps = {
+  serverUrl: string;
+  isConnected: boolean;
+  isLoading: boolean;
+  error: string | null;
+  onSubmit: (url: string) => void;
+  onTest: () => void;
+};
 
-export default function ServerForm({ settings, onSave }: ServerFormProps) {
-  const [serverUrl, setServerUrl] = useState(settings.serverUrl);
-  const [apiKey, setApiKey] = useState(settings.apiKey);
-  const [model, setModel] = useState(settings.model);
-
-  const handleSave = () => {
-    if (!serverUrl.trim()) {
-      Alert.alert('Error', 'Server URL is required');
+export default function ServerForm({ 
+  serverUrl, 
+  isConnected, 
+  isLoading, 
+  error, 
+  onSubmit, 
+  onTest 
+}: ServerFormProps) {
+  const [url, setUrl] = useState(serverUrl);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
+  useEffect(() => {
+    setUrl(serverUrl);
+  }, [serverUrl]);
+  
+  const handleSubmit = () => {
+    if (!url.trim()) {
+      Alert.alert('Error', 'Please enter a server URL');
       return;
     }
-
-    onSave({
-      ...settings,
-      serverUrl: serverUrl.trim(),
-      apiKey: apiKey.trim(),
-      model: model.trim(),
-    });
-
-    Alert.alert('Success', 'Settings saved successfully');
+    
+    // Add http:// prefix if missing
+    let formattedUrl = url.trim();
+    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+      formattedUrl = `http://${formattedUrl}`;
+    }
+    
+    onSubmit(formattedUrl);
   };
-
+  
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Server Settings</Text>
+      <Text style={[
+        styles.label,
+        isDark ? styles.labelDark : styles.labelLight
+      ]}>
+        LM Studio Server URL
+      </Text>
       
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Server URL</Text>
-        <TextInput
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          placeholder="https://api.openai.com/v1"
-          placeholderTextColor="#8E8E93"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+      <TextInput
+        style={[
+          styles.input,
+          isDark ? styles.inputDark : styles.inputLight
+        ]}
+        value={url}
+        onChangeText={setUrl}
+        placeholder="http://127.0.0.1:1234"
+        placeholderTextColor={isDark ? colors.darkLightText : colors.lightText}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
+      
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.saveButton,
+            !url.trim() && styles.disabledButton
+          ]}
+          onPress={handleSubmit}
+          disabled={!url.trim() || isLoading}
+        >
+          <Text style={styles.buttonText}>Save</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.testButton,
+            !url.trim() && styles.disabledButton
+          ]}
+          onPress={onTest}
+          disabled={!url.trim() || isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Test Connection</Text>
+          )}
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>API Key</Text>
-        <TextInput
-          style={styles.input}
-          value={apiKey}
-          onChangeText={setApiKey}
-          placeholder="sk-..."
-          placeholderTextColor="#8E8E93"
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Model</Text>
-        <TextInput
-          style={styles.input}
-          value={model}
-          onChangeText={setModel}
-          placeholder="gpt-3.5-turbo"
-          placeholderTextColor="#8E8E93"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-        <Text style={styles.saveButtonText}>Save Settings</Text>
-      </TouchableOpacity>
+      
+      {error ? (
+        <Text style={styles.errorText}>{error}</Text>
+      ) : isConnected ? (
+        <Text style={styles.successText}>Connected successfully!</Text>
+      ) : null}
+      
+      <Text style={[
+        styles.helpText,
+        isDark ? styles.helpTextDark : styles.helpTextLight
+      ]}>
+        Enter the URL of your LM Studio server. Make sure LM Studio is running and the API server is enabled.
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 16,
+    padding: 16,
   },
   label: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#000000',
+    fontWeight: '600',
     marginBottom: 8,
   },
+  labelLight: {
+    color: colors.text,
+  },
+  labelDark: {
+    color: colors.darkText,
+  },
   input: {
-    backgroundColor: '#F2F2F7',
+    borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#000000',
+    marginBottom: 16,
+  },
+  inputLight: {
+    backgroundColor: '#fff',
+    borderColor: colors.border,
+    color: colors.text,
+  },
+  inputDark: {
+    backgroundColor: '#2A2C34',
+    borderColor: colors.darkBorder,
+    color: colors.darkText,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  button: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: colors.primary,
+    marginRight: 8,
   },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  testButton: {
+    backgroundColor: colors.secondary,
+    marginLeft: 8,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  buttonText: {
+    color: '#fff',
     fontWeight: '600',
+    fontSize: 16,
   },
-}); 
+  errorText: {
+    color: colors.error,
+    marginBottom: 16,
+  },
+  successText: {
+    color: colors.success,
+    marginBottom: 16,
+  },
+  helpText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  helpTextLight: {
+    color: colors.lightText,
+  },
+  helpTextDark: {
+    color: colors.darkLightText,
+  },
+});

@@ -1,36 +1,65 @@
 import { create } from 'zustand';
-import { Settings } from '../types';
-import { saveSettings, loadSettings } from '../utils/storage';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ServerSettings } from '@/types';
+import { llmClient } from '@/api/llmClient';
 
 interface SettingsState {
-  settings: Settings;
-  
-  // Actions
-  updateSettings: (settings: Settings) => Promise<void>;
-  loadSettings: () => Promise<void>;
+  serverUrl: string;
+  isConnected: boolean;
+  isLoading: boolean;
+  error: string | null;
+  setServerUrl: (url: string) => void;
+  testConnection: () => Promise<boolean>;
+  resetError: () => void;
 }
 
-const defaultSettings: Settings = {
-  serverUrl: 'https://api.openai.com/v1',
-  apiKey: '',
-  model: 'gpt-3.5-turbo',
-};
-
-export const useSettingsStore = create<SettingsState>((set) => ({
-  settings: defaultSettings,
-
-  updateSettings: async (newSettings: Settings) => {
-    await saveSettings(newSettings);
-    set({ settings: newSettings });
-  },
-
-  loadSettings: async () => {
-    try {
-      const settings = await loadSettings();
-      set({ settings: { ...defaultSettings, ...settings } });
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      set({ settings: defaultSettings });
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set, get) => ({
+      serverUrl: '',
+      isConnected: false,
+      isLoading: false,
+      error: null,
+      
+      setServerUrl: (url: string) => {
+        set({ serverUrl: url });
+        llmClient.setServerUrl(url);
+      },
+      
+      testConnection: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const url = get().serverUrl;
+          if (!url) {
+            set({ error: 'Please enter a server URL', isLoading: false, isConnected: false });
+            return false;
+          }
+          
+          llmClient.setServerUrl(url);
+          const isConnected = await llmClient.testConnection();
+          set({ isConnected, isLoading: false });
+          
+          if (!isConnected) {
+            set({ error: 'Could not connect to server' });
+          }
+          
+          return isConnected;
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'An unknown error occurred', 
+            isLoading: false,
+            isConnected: false
+          });
+          return false;
+        }
+      },
+      
+      resetError: () => set({ error: null }),
+    }),
+    {
+      name: 'settings-storage',
+      storage: createJSONStorage(() => AsyncStorage),
     }
-  },
-})); 
+  )
+);
